@@ -6,8 +6,8 @@ from collections.abc import Sequence
 from itertools import pairwise
 
 from core.timeframes import (
-    LOOKBACKS,
     LOOKBACK_TO_TIMEFRAME,
+    LOOKBACKS,
     PERIODS_PER_YEAR,
     TIMEFRAMES,
     Lookback,
