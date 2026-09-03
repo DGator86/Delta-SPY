@@ -7,8 +7,8 @@ from pathlib import Path
 from core.timeframes import LOOKBACKS, TIMEFRAMES
 from engines.alpha.contracts import (
     AlphaInput,
-    AlphaLookForwardRows,
     AlphaLookbackRows,
+    AlphaLookForwardRows,
     AlphaRows,
     AlphaState,
     ConfidenceChangeState,
