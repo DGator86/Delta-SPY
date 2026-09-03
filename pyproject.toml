@@ -13,7 +13,7 @@ dev = ["pytest>=8.0", "ruff>=0.8"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["engines*"]
+include = ["core*", "engines*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
