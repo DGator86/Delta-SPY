@@ -5,10 +5,20 @@ import statistics
 from collections.abc import Sequence
 from itertools import pairwise
 
-from core.timeframes import PERIODS_PER_YEAR, TIMEFRAMES, Timeframe, require_timeframe_columns
+from core.timeframes import (
+    LOOKBACKS,
+    LOOKBACK_TO_TIMEFRAME,
+    PERIODS_PER_YEAR,
+    TIMEFRAMES,
+    Lookback,
+    Timeframe,
+    require_lookback_columns,
+    require_timeframe_columns,
+)
 
 from .contracts import (
     AlphaInput,
+    AlphaLookbackRows,
     AlphaRows,
     AlphaState,
     CrossSectionState,
@@ -18,7 +28,7 @@ from .contracts import (
     RegimeState,
 )
 
-ENGINE_VERSION = "alpha-0.2.0"
+ENGINE_VERSION = "alpha-0.3.0"
 
 
 def _simple_return(start: float, end: float) -> float | None:
@@ -63,7 +73,7 @@ def _one_bar_samples(
     bars: Sequence[PriceBar],
     lookback: int,
 ) -> tuple[list[float], list[float], list[float]]:
-    """Completed one-column-period paths only; never uses the unfinished future."""
+    """Completed one-column-period paths only; never uses unfinished future data."""
 
     returns: list[float] = []
     mfes: list[float] = []
@@ -213,14 +223,17 @@ def _correlation(left: Sequence[float], right: Sequence[float]) -> float | None:
     return covariance / (left_sigma * right_sigma)
 
 
-def _cross_section(input_state: AlphaInput, timeframe: Timeframe) -> CrossSectionState:
-    spy_returns = _returns_from_closes([bar.close for bar in input_state.spy_bars[timeframe]])
+def _cross_section(
+    bars: Sequence[PriceBar],
+    constituent_closes: dict[str, tuple[float, ...]],
+) -> CrossSectionState:
+    spy_returns = _returns_from_closes([bar.close for bar in bars])
     correlations: list[float] = []
     covariances: list[float] = []
     latest_returns: list[float] = []
     aligned_symbols = 0
 
-    for closes in input_state.constituent_closes.get(timeframe, {}).values():
+    for closes in constituent_closes.values():
         constituent_returns = _returns_from_closes(closes)
         width = min(len(spy_returns), len(constituent_returns))
         if width < 2:
@@ -246,22 +259,22 @@ def _cross_section(input_state: AlphaInput, timeframe: Timeframe) -> CrossSectio
 
 
 def _quality(
-    input_state: AlphaInput,
-    timeframe: Timeframe,
+    bars: Sequence[PriceBar],
     cross_section: CrossSectionState,
+    sample_lookback: int,
 ) -> DataQuality:
-    bars = len(input_state.spy_bars[timeframe])
-    usable_returns = max(0, bars - 1)
+    bar_count = len(bars)
+    usable_returns = max(0, bar_count - 1)
     warnings: list[str] = []
-    if bars < 21:
+    if bar_count < 21:
         warnings.append("insufficient_history_for_20_bar_statistics")
-    if usable_returns < input_state.sample_lookback:
+    if usable_returns < sample_lookback:
         warnings.append("forecast_history_shorter_than_requested_lookback")
     if cross_section.symbol_count == 0:
         warnings.append("cross_section_unavailable")
-    completeness = min(1.0, usable_returns / max(input_state.sample_lookback, 1))
+    completeness = min(1.0, usable_returns / max(sample_lookback, 1))
     return DataQuality(
-        bars_received=bars,
+        bars_received=bar_count,
         usable_returns=usable_returns,
         aligned_constituents=cross_section.symbol_count,
         completeness=completeness,
@@ -270,8 +283,10 @@ def _quality(
 
 
 def _validate_bar_series(timeframe: Timeframe, bars: Sequence[PriceBar], *, as_of) -> None:
-    if not bars:
-        raise ValueError(f"AlphaInput.spy_bars[{timeframe!r}] must not be empty")
+    if len(bars) < 2:
+        raise ValueError(
+            f"AlphaInput.spy_bars[{timeframe!r}] requires at least two bars for lookback state"
+        )
     previous_timestamp = None
     for bar in bars:
         if bar.close <= 0 or bar.high <= 0 or bar.low <= 0 or bar.open <= 0:
@@ -295,51 +310,118 @@ def _validate(input_state: AlphaInput) -> None:
         _validate_bar_series(timeframe, input_state.spy_bars[timeframe], as_of=input_state.as_of)
 
 
+def _trim_constituents_one_bar(
+    constituent_closes: dict[str, tuple[float, ...]],
+) -> dict[str, tuple[float, ...]]:
+    return {
+        symbol: closes[:-1]
+        for symbol, closes in constituent_closes.items()
+        if len(closes) >= 2
+    }
+
+
+def _build_current_rows(input_state: AlphaInput) -> AlphaRows:
+    spot: dict[Timeframe, float] = {}
+    observed_return: dict[Timeframe, float | None] = {}
+    regime: dict[Timeframe, RegimeState] = {}
+    cross_section: dict[Timeframe, CrossSectionState] = {}
+    forecast: dict[Timeframe, ForecastDistribution] = {}
+    quality: dict[Timeframe, DataQuality] = {}
+
+    for timeframe in TIMEFRAMES:
+        bars = input_state.spy_bars[timeframe]
+        constituents = input_state.constituent_closes.get(timeframe, {})
+        cross = _cross_section(bars, constituents)
+        spot[timeframe] = bars[-1].close
+        observed_return[timeframe] = _return_over_bars(bars, 1)
+        regime[timeframe] = _regime_state(timeframe, bars)
+        cross_section[timeframe] = cross
+        forecast[timeframe] = _forecast_distribution(
+            timeframe,
+            bars,
+            input_state.sample_lookback,
+        )
+        quality[timeframe] = _quality(bars, cross, input_state.sample_lookback)
+
+    require_timeframe_columns(spot, label="AlphaState.current.spot")
+    require_timeframe_columns(observed_return, label="AlphaState.current.observed_return")
+    require_timeframe_columns(regime, label="AlphaState.current.regime")
+    require_timeframe_columns(cross_section, label="AlphaState.current.cross_section")
+    require_timeframe_columns(forecast, label="AlphaState.current.forecast")
+    require_timeframe_columns(quality, label="AlphaState.current.quality")
+
+    return AlphaRows(
+        spot=spot,
+        observed_return=observed_return,
+        regime=regime,
+        cross_section=cross_section,
+        forecast=forecast,
+        quality=quality,
+    )
+
+
+def _build_lookback_rows(input_state: AlphaInput) -> AlphaLookbackRows:
+    spot: dict[Lookback, float] = {}
+    observed_return: dict[Lookback, float | None] = {}
+    regime: dict[Lookback, RegimeState] = {}
+    cross_section: dict[Lookback, CrossSectionState] = {}
+    forecast: dict[Lookback, ForecastDistribution] = {}
+    quality: dict[Lookback, DataQuality] = {}
+
+    for lookback in LOOKBACKS:
+        timeframe = LOOKBACK_TO_TIMEFRAME[lookback]
+        bars = input_state.spy_bars[timeframe][:-1]
+        constituents = _trim_constituents_one_bar(
+            input_state.constituent_closes.get(timeframe, {})
+        )
+        cross = _cross_section(bars, constituents)
+        spot[lookback] = bars[-1].close
+        observed_return[lookback] = _return_over_bars(bars, 1)
+        regime[lookback] = _regime_state(timeframe, bars)
+        cross_section[lookback] = cross
+        forecast[lookback] = _forecast_distribution(
+            timeframe,
+            bars,
+            input_state.sample_lookback,
+        )
+        quality[lookback] = _quality(bars, cross, input_state.sample_lookback)
+
+    require_lookback_columns(spot, label="AlphaState.lookback.spot")
+    require_lookback_columns(observed_return, label="AlphaState.lookback.observed_return")
+    require_lookback_columns(regime, label="AlphaState.lookback.regime")
+    require_lookback_columns(cross_section, label="AlphaState.lookback.cross_section")
+    require_lookback_columns(forecast, label="AlphaState.lookback.forecast")
+    require_lookback_columns(quality, label="AlphaState.lookback.quality")
+
+    return AlphaLookbackRows(
+        spot=spot,
+        observed_return=observed_return,
+        regime=regime,
+        cross_section=cross_section,
+        forecast=forecast,
+        quality=quality,
+    )
+
+
 class AlphaEngine:
-    """Pure statistical engine: seven timeframe columns in, seven columns out."""
+    """Pure statistical engine: current and lookback matrices in one state."""
 
     version = ENGINE_VERSION
 
     def process(self, input_state: AlphaInput) -> AlphaState:
         _validate(input_state)
-
-        spot: dict[Timeframe, float] = {}
-        observed_return: dict[Timeframe, float | None] = {}
-        regime: dict[Timeframe, RegimeState] = {}
-        cross_section: dict[Timeframe, CrossSectionState] = {}
-        forecast: dict[Timeframe, ForecastDistribution] = {}
-        quality: dict[Timeframe, DataQuality] = {}
-
-        for timeframe in TIMEFRAMES:
-            bars = input_state.spy_bars[timeframe]
-            cross = _cross_section(input_state, timeframe)
-            spot[timeframe] = bars[-1].close
-            observed_return[timeframe] = _return_over_bars(bars, 1)
-            regime[timeframe] = _regime_state(timeframe, bars)
-            cross_section[timeframe] = cross
-            forecast[timeframe] = _forecast_distribution(
-                timeframe,
-                bars,
-                input_state.sample_lookback,
-            )
-            quality[timeframe] = _quality(input_state, timeframe, cross)
-
-        rows = AlphaRows(
-            spot=spot,
-            observed_return=observed_return,
-            regime=regime,
-            cross_section=cross_section,
-            forecast=forecast,
-            quality=quality,
-        )
         return AlphaState(
             engine="ALPHA",
             engine_version=self.version,
             as_of=input_state.as_of,
-            rows=rows,
+            current=_build_current_rows(input_state),
+            lookback=_build_lookback_rows(input_state),
             metadata={
                 "authority": "measurement_and_statistical_forecast_only",
-                "matrix_orientation": "rows=processing_units,columns=timeframes",
+                "matrix_orientation": "rows=processing_units,columns=timeframes_or_lookbacks",
+                "current_columns": "1m|5m|15m|30m|1h|4h|1d|3d|5d",
+                "lookback_columns": "-1m|-5m|-15m|-30m|-1h|-4h|-1d|-3d|-5d",
+                "lookback_semantics": "one_completed_matching_native_bar_earlier",
                 "forecast_semantics": "one_completed_native_timeframe_bar_ahead",
                 "return_units": "decimal_fraction",
             },
