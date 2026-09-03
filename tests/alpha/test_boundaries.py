@@ -64,5 +64,9 @@ def test_alpha_does_not_import_other_engines_or_trading_layers() -> None:
 
 def test_only_alpha_engine_exists_at_this_stage() -> None:
     engines_root = ALPHA_ROOT.parent
-    implemented = sorted(path.name for path in engines_root.iterdir() if path.is_dir())
+    implemented = sorted(
+        path.name
+        for path in engines_root.iterdir()
+        if path.is_dir() and not path.name.startswith("__")
+    )
     assert implemented == ["alpha"]
