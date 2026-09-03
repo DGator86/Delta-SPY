@@ -107,8 +107,8 @@ class AlphaState:
     engine: str
     engine_version: str
     as_of: datetime
+    rows: AlphaRows
     columns: tuple[Timeframe, ...] = TIMEFRAMES
-    rows: AlphaRows | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
