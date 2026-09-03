@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeVar
 
 from .timeframes import LOOKBACK_TO_TIMEFRAME, LOOKBACKS, Lookback, Timeframe
 
@@ -85,9 +84,6 @@ def linear_bridge(lookback: Lookback, y_a: float, y_b: float) -> LinearBridge:
         slope_per_minute=slope,
         intercept=intercept,
     )
-
-
-T = TypeVar("T", bound=float)
 
 
 def build_linear_bridges(
