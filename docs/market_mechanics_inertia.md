@@ -63,7 +63,7 @@ inertial_bias =
     / (downside_inertia + upside_inertia)
 ```
 
-Nonpositive directional beta estimates are treated as unavailable rather than converted into fake negative inertia values.
+Nonpositive directional beta estimates are treated as unavailable rather than converted into fake negative inertia values. Beta also remains unavailable when the fitted force subset has no variation, because responsiveness is not identifiable from constant pressure.
 
 ## Phase-I causal beta estimator
 
@@ -78,8 +78,6 @@ net_force
 `trading_minute` is a monotonic regular-session market clock. A complete regular session advances it by 390 minutes. This keeps weekend and closure time out of the mechanics geometry.
 
 `log_price` must be a price estimate available live at that instant. Midpoint, microprice, or another causal efficient-price proxy is preferred over last-trade price.
-
-`net_force` is a signed causal pressure input. In this first estimator it is supplied by the upstream pressure layer; this module does not yet claim that any particular force construction is correct.
 
 The estimator derives velocity and acceleration causally from log price, then forms samples of the form:
 
@@ -106,9 +104,24 @@ v < 0 and F > 0              -> beta_mp
 v < 0 and F < 0              -> beta_mm
 ```
 
-Each coefficient carries its sample count and R-squared diagnostic. Insufficient samples remain unavailable rather than being filled.
+Each coefficient carries its sample count and R-squared diagnostic. Insufficient or unidentified samples remain unavailable rather than being filled.
 
 By default, force, acceleration, and velocity are scaled within each window so the response coefficients are dimensionless and more comparable across regimes. Raw-unit estimation is retained for research and synthetic recovery tests.
+
+## Phase-I force construction
+
+The upstream `core.market_mechanics_force` module now constructs the causal `net_force` input from decomposed SPY microstructure pressure:
+
+```text
+best-quote order-flow imbalance
+signed aggressive trade imbalance
+static depth imbalance
+liquidity replenishment / cancellation pressure
+```
+
+Every component remains visible separately. The baseline composite is a transparent configurable weighted average over the components actually available at that timestamp. Default equal weights are only a research baseline, not an empirical claim of optimality.
+
+The force engine also produces midpoint or microprice-based efficient log price, so its output adapts directly into this inertia estimator. See `docs/market_mechanics_force.md`.
 
 ## Linear walk-forward
 
@@ -142,8 +155,20 @@ M(C) = 2*M(B) - M(A)
 
 because inertia is mathematically dependent on the response coefficient. Walking beta and re-deriving inertia preserves the Market Mechanics model hierarchy.
 
-## Current boundary
+## Research boundary
 
-This is a Phase-I response estimator, not a validated market model. It estimates how a supplied causal pressure stream maps into subsequent price acceleration. The next empirical question is whether the supplied force construction is itself informative and whether the resulting inertia variables add out-of-sample information beyond raw force, liquidity, volatility, and conventional momentum.
+The implementation now proves deterministic force construction, causal response estimation, matrix geometry, prefix invariance, and synthetic coefficient recovery. It does not establish that the force composite or inferred inertia has incremental predictive value on real SPY data.
 
-The module has no action, trade, strategy, position, order, broker, sizing, or execution authority.
+Required empirical kill tests still include:
+
+- OFI-only substitution
+- depth-only substitution
+- volatility control
+- component ablations
+- equal-weight composite versus learned weights
+- reverse causality
+- walk-forward regime stability
+- horizon stability
+- inertia versus raw-force predictive lift
+
+No action, trade, strategy, position, order, broker, sizing, or execution authority exists in Market Mechanics.
