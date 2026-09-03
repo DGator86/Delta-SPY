@@ -4,15 +4,15 @@ from dataclasses import dataclass
 
 from .timeframes import LOOKBACK_TO_TIMEFRAME, LOOKBACKS, Lookback, Timeframe
 
-# Canonical symmetric A -> B pairs. Point A is the negative lookback column;
-# point B is the matching positive current-state column.
+# Canonical A -> B pairs. A is the prior native state at t-T; B is the
+# matching current native state at t.
 LINEAR_PAIRS: tuple[tuple[Lookback, Timeframe], ...] = tuple(
     (lookback, LOOKBACK_TO_TIMEFRAME[lookback]) for lookback in LOOKBACKS
 )
 
-# Common coordinate basis for the straight-line function. Intraday columns use
-# elapsed minutes. Daily and multi-day columns use regular-session trading minutes
-# so weekends/closures do not alter the geometry.
+# Common coordinate basis. Intraday columns use elapsed minutes. Daily and
+# multi-day columns use regular-session trading minutes so weekends/closures do
+# not alter the geometry.
 TIMEFRAME_DISTANCE_MINUTES: dict[Timeframe, float] = {
     "1m": 1.0,
     "5m": 5.0,
@@ -28,7 +28,7 @@ TIMEFRAME_DISTANCE_MINUTES: dict[Timeframe, float] = {
 
 @dataclass(frozen=True, slots=True)
 class LinearBridge:
-    """Straight line through a symmetric negative-time point A and positive-time point B."""
+    """Straight line through prior state A at t-T and current state B at t."""
 
     lookback: Lookback
     timeframe: Timeframe
@@ -41,13 +41,20 @@ class LinearBridge:
 
     @property
     def midpoint_value(self) -> float:
-        """Value at x=0; symmetry makes this the arithmetic mean of A and B."""
+        """Arithmetic midpoint on the observed A -> B segment."""
 
-        return self.intercept
+        return (self.y_a + self.y_b) / 2.0
 
     @property
     def total_change(self) -> float:
         return self.y_b - self.y_a
+
+    @property
+    def forward_one_t_value(self) -> float:
+        """Continue the A -> B line one more matching native period T."""
+
+        distance = self.x_b_minutes - self.x_a_minutes
+        return self.value_at(self.x_b_minutes + distance)
 
     def value_at(self, x_minutes: float) -> float:
         """Evaluate the unbounded line y = m*x + b at x_minutes."""
@@ -55,34 +62,39 @@ class LinearBridge:
         return self.slope_per_minute * x_minutes + self.intercept
 
     def interpolate(self, fraction: float) -> float:
-        """Interpolate on segment A->B where 0=A, 0.5=midpoint, 1=B."""
+        """Interpolate on observed segment A->B where 0=A and 1=B."""
 
         return self.y_a + fraction * (self.y_b - self.y_a)
 
 
 def linear_bridge(lookback: Lookback, y_a: float, y_b: float) -> LinearBridge:
-    """Build the canonical straight line from -T value A to +T value B.
+    """Build the canonical line from prior A at t-T to current B at t.
 
-    For symmetric endpoints (-T, A) and (+T, B):
+    Coordinates are:
 
-        slope = (B - A) / (2T)
-        intercept = (A + B) / 2
-        f(x) = slope*x + intercept
+        A = (-T, y_a)
+        B = ( 0, y_b)
+
+    Therefore:
+
+        slope = (B - A) / T
+        intercept = B
+        f(x) = slope*x + B
+        f(+T) = B + (B - A) = 2B - A
     """
 
     timeframe = LOOKBACK_TO_TIMEFRAME[lookback]
     distance = TIMEFRAME_DISTANCE_MINUTES[timeframe]
-    slope = (y_b - y_a) / (2.0 * distance)
-    intercept = (y_a + y_b) / 2.0
+    slope = (y_b - y_a) / distance
     return LinearBridge(
         lookback=lookback,
         timeframe=timeframe,
         x_a_minutes=-distance,
-        x_b_minutes=distance,
+        x_b_minutes=0.0,
         y_a=y_a,
         y_b=y_b,
         slope_per_minute=slope,
-        intercept=intercept,
+        intercept=y_b,
     )
 
 
