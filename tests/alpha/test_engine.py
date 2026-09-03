@@ -126,7 +126,7 @@ def test_alpha_is_deterministic_and_emits_current_and_lookback_matrices() -> Non
 
     assert first == second
     assert first.engine == "ALPHA"
-    assert first.engine_version == "alpha-0.4.0"
+    assert first.engine_version == "alpha-0.5.0"
     assert first.current_columns == TIMEFRAMES
     assert first.lookback_columns == LOOKBACKS
 
@@ -194,7 +194,6 @@ def test_temporal_rows_are_causal_first_and_second_differences() -> None:
     assert transition.to_trend == state.current.regime[timeframe].trend
     assert transition.trend_changed is False
 
-    # Current acceleration is Δ(current-prior) - Δ(prior-prior_prior).
     acceleration = state.current.state_acceleration[timeframe]
     previous_velocity = state.lookback.state_velocity[lookback]
     assert acceleration.expected_return_second_difference == pytest.approx(
