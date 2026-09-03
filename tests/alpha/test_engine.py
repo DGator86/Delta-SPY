@@ -79,6 +79,40 @@ def _assert_columns(mapping: dict, expected: tuple[str, ...]) -> None:
     assert tuple(mapping) == expected
 
 
+def _current_rows(state) -> tuple[dict, ...]:
+    return (
+        state.current.spot,
+        state.current.observed_return,
+        state.current.regime,
+        state.current.cross_section,
+        state.current.forecast,
+        state.current.quality,
+        state.current.state_velocity,
+        state.current.state_acceleration,
+        state.current.persistence,
+        state.current.regime_transition,
+        state.current.forecast_drift,
+        state.current.confidence_change,
+    )
+
+
+def _lookback_rows(state) -> tuple[dict, ...]:
+    return (
+        state.lookback.spot,
+        state.lookback.observed_return,
+        state.lookback.regime,
+        state.lookback.cross_section,
+        state.lookback.forecast,
+        state.lookback.quality,
+        state.lookback.state_velocity,
+        state.lookback.state_acceleration,
+        state.lookback.persistence,
+        state.lookback.regime_transition,
+        state.lookback.forecast_drift,
+        state.lookback.confidence_change,
+    )
+
+
 def test_alpha_is_deterministic_and_emits_current_and_lookback_matrices() -> None:
     matrix = _matrix()
     input_state = AlphaInput(
@@ -92,27 +126,13 @@ def test_alpha_is_deterministic_and_emits_current_and_lookback_matrices() -> Non
 
     assert first == second
     assert first.engine == "ALPHA"
+    assert first.engine_version == "alpha-0.4.0"
     assert first.current_columns == TIMEFRAMES
     assert first.lookback_columns == LOOKBACKS
 
-    for row in (
-        first.current.spot,
-        first.current.observed_return,
-        first.current.regime,
-        first.current.cross_section,
-        first.current.forecast,
-        first.current.quality,
-    ):
+    for row in _current_rows(first):
         _assert_columns(row, TIMEFRAMES)
-
-    for row in (
-        first.lookback.spot,
-        first.lookback.observed_return,
-        first.lookback.regime,
-        first.lookback.cross_section,
-        first.lookback.forecast,
-        first.lookback.quality,
-    ):
+    for row in _lookback_rows(first):
         _assert_columns(row, LOOKBACKS)
 
     for timeframe in TIMEFRAMES:
@@ -123,6 +143,7 @@ def test_alpha_is_deterministic_and_emits_current_and_lookback_matrices() -> Non
         assert first.current.forecast[timeframe].samples == 179
         assert first.current.forecast[timeframe].probability_up is not None
         assert first.current.forecast[timeframe].probability_up > 0.9
+        assert first.current.persistence[timeframe].trend_streak_bars >= 1
 
     for lookback in LOOKBACKS:
         timeframe = LOOKBACK_TO_TIMEFRAME[lookback]
@@ -131,6 +152,54 @@ def test_alpha_is_deterministic_and_emits_current_and_lookback_matrices() -> Non
         assert first.lookback.cross_section[lookback].symbol_count == 3
         assert first.lookback.forecast[lookback].timeframe == timeframe
         assert first.lookback.forecast[lookback].samples == 178
+        assert first.lookback.persistence[lookback].trend_streak_bars >= 1
+
+
+def test_temporal_rows_are_causal_first_and_second_differences() -> None:
+    matrix = _matrix(100)
+    constituents = _constituents(matrix)
+    state = AlphaEngine().process(
+        AlphaInput(
+            as_of=matrix["1m"][-1].timestamp,
+            spy_bars=matrix,
+            constituent_closes=constituents,
+        )
+    )
+
+    timeframe = "15m"
+    lookback = "-15m"
+    current_forecast = state.current.forecast[timeframe]
+    prior_forecast = state.lookback.forecast[lookback]
+    drift = state.current.forecast_drift[timeframe]
+    velocity = state.current.state_velocity[timeframe]
+
+    assert drift.expected_return_delta == pytest.approx(
+        current_forecast.expected_return - prior_forecast.expected_return
+    )
+    assert drift.probability_up_delta == pytest.approx(
+        current_forecast.probability_up - prior_forecast.probability_up
+    )
+    assert velocity.expected_return_delta == pytest.approx(drift.expected_return_delta)
+    assert velocity.probability_up_delta == pytest.approx(drift.probability_up_delta)
+
+    current_confidence = state.current.regime[timeframe].confidence
+    prior_confidence = state.lookback.regime[lookback].confidence
+    confidence_change = state.current.confidence_change[timeframe]
+    assert confidence_change.previous_confidence == prior_confidence
+    assert confidence_change.current_confidence == current_confidence
+    assert confidence_change.delta == pytest.approx(current_confidence - prior_confidence)
+
+    transition = state.current.regime_transition[timeframe]
+    assert transition.from_trend == state.lookback.regime[lookback].trend
+    assert transition.to_trend == state.current.regime[timeframe].trend
+    assert transition.trend_changed is False
+
+    # Current acceleration is Δ(current-prior) - Δ(prior-prior_prior).
+    acceleration = state.current.state_acceleration[timeframe]
+    previous_velocity = state.lookback.state_velocity[lookback]
+    assert acceleration.expected_return_second_difference == pytest.approx(
+        velocity.expected_return_delta - previous_velocity.expected_return_delta
+    )
 
 
 def test_every_forecast_cell_uses_completed_native_timeframe_paths() -> None:
@@ -192,6 +261,20 @@ def test_alpha_requires_prior_bar_for_lookback_matrix() -> None:
                 spy_bars=matrix,
             )
         )
+
+
+def test_insufficient_history_keeps_dynamics_cells_without_inventing_values() -> None:
+    matrix = _matrix(2)
+    state = AlphaEngine().process(
+        AlphaInput(as_of=matrix["1m"][-1].timestamp, spy_bars=matrix)
+    )
+
+    for timeframe in TIMEFRAMES:
+        acceleration = state.current.state_acceleration[timeframe]
+        assert acceleration.expected_return_second_difference is None
+    for lookback in LOOKBACKS:
+        velocity = state.lookback.state_velocity[lookback]
+        assert velocity.expected_return_delta is None
 
 
 def test_alpha_rejects_future_information_in_any_column() -> None:
