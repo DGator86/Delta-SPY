@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import statistics
 from collections.abc import Sequence
+from itertools import pairwise
 
 from .contracts import (
     AlphaInput,
@@ -26,7 +27,7 @@ def _simple_return(start: float, end: float) -> float | None:
 
 def _returns_from_closes(closes: Sequence[float]) -> list[float]:
     out: list[float] = []
-    for previous, current in zip(closes[:-1], closes[1:], strict=True):
+    for previous, current in pairwise(closes):
         value = _simple_return(previous, current)
         if value is not None and math.isfinite(value):
             out.append(value)
@@ -48,8 +49,8 @@ def _quantile(values: Sequence[float], probability: float) -> float | None:
     if len(ordered) == 1:
         return ordered[0]
     position = probability * (len(ordered) - 1)
-    lower = int(math.floor(position))
-    upper = int(math.ceil(position))
+    lower = math.floor(position)
+    upper = math.ceil(position)
     if lower == upper:
         return ordered[lower]
     weight = position - lower
