@@ -151,6 +151,19 @@ class ConfidenceChangeState:
 
 
 @dataclass(frozen=True, slots=True)
+class LinearWalkForward1TState:
+    """Auditable one-native-period linear continuation from prior A through current B."""
+
+    lookback: Lookback
+    timeframe: Timeframe
+    point_a: float
+    point_b: float
+    observed_delta: float
+    slope_per_minute: float
+    projected_spot: float
+
+
+@dataclass(frozen=True, slots=True)
 class AlphaRows:
     """Current Alpha processing-unit rows across positive timeframe columns."""
 
@@ -187,6 +200,13 @@ class AlphaLookbackRows:
 
 
 @dataclass(frozen=True, slots=True)
+class AlphaLookForwardRows:
+    """Forward-processing rows across the canonical positive timeframe columns."""
+
+    linear_ab_1t: dict[Timeframe, LinearWalkForward1TState] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class AlphaState:
     """Complete public output from Alpha.
 
@@ -196,8 +216,8 @@ class AlphaState:
     ``lookback`` rows use columns:
     -1m | -5m | -15m | -30m | -1h | -4h | -1d | -3d | -5d
 
-    This is a measurement/forecast state only. It intentionally contains no action,
-    trade, strategy, position, order, broker, sizing, or execution fields.
+    ``look_forward`` rows use the positive timeframe columns as forecast horizons.
+    They are processor outputs, not trade or strategy decisions.
     """
 
     engine: str
@@ -205,8 +225,10 @@ class AlphaState:
     as_of: datetime
     current: AlphaRows
     lookback: AlphaLookbackRows
+    look_forward: AlphaLookForwardRows = field(default_factory=AlphaLookForwardRows)
     current_columns: tuple[Timeframe, ...] = TIMEFRAMES
     lookback_columns: tuple[Lookback, ...] = LOOKBACKS
+    look_forward_columns: tuple[Timeframe, ...] = TIMEFRAMES
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
