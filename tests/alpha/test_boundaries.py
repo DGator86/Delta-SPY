@@ -4,9 +4,10 @@ import ast
 from dataclasses import fields
 from pathlib import Path
 
-from core.timeframes import TIMEFRAMES
+from core.timeframes import LOOKBACKS, TIMEFRAMES
 from engines.alpha.contracts import (
     AlphaInput,
+    AlphaLookbackRows,
     AlphaRows,
     AlphaState,
     CrossSectionState,
@@ -46,6 +47,7 @@ PUBLIC_CONTRACTS = (
     CrossSectionState,
     DataQuality,
     AlphaRows,
+    AlphaLookbackRows,
     AlphaState,
 )
 
@@ -54,8 +56,29 @@ def _field_names(dataclass_type) -> set[str]:
     return {field.name.lower() for field in fields(dataclass_type)}
 
 
-def test_canonical_timeframe_columns_are_fixed() -> None:
-    assert TIMEFRAMES == ("1m", "5m", "15m", "30m", "1h", "4h", "1d")
+def test_canonical_current_and_lookback_columns_are_fixed() -> None:
+    assert TIMEFRAMES == (
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "1d",
+        "3d",
+        "5d",
+    )
+    assert LOOKBACKS == (
+        "-1m",
+        "-5m",
+        "-15m",
+        "-30m",
+        "-1h",
+        "-4h",
+        "-1d",
+        "-3d",
+        "-5d",
+    )
 
 
 def test_alpha_public_contract_has_no_decision_or_execution_fields() -> None:
