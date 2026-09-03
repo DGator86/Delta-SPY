@@ -3,7 +3,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .market_mechanics import InertiaMatrices, MechanicsWindow, build_inertia_matrices, mechanics_windows
+from .market_mechanics import (
+    InertiaMatrices,
+    MechanicsWindow,
+    build_inertia_matrices,
+    mechanics_windows,
+)
 from .timeframes import LOOKBACKS, TIMEFRAMES, Lookback, Timeframe
 
 
