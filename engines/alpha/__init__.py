@@ -7,13 +7,19 @@ from .contracts import (
     AlphaLookbackRows,
     AlphaRows,
     AlphaState,
+    ConfidenceChangeState,
     CrossSectionState,
     DataQuality,
     ForecastDistribution,
+    ForecastDriftState,
+    PersistenceState,
     PriceBar,
     RegimeState,
+    RegimeTransitionState,
+    StateAccelerationState,
+    StateVelocityState,
 )
-from .engine import AlphaEngine
+from .engine_v04 import AlphaEngine
 
 __all__ = [
     "LOOKBACKS",
@@ -23,11 +29,17 @@ __all__ = [
     "AlphaLookbackRows",
     "AlphaRows",
     "AlphaState",
+    "ConfidenceChangeState",
     "CrossSectionState",
     "DataQuality",
     "ForecastDistribution",
+    "ForecastDriftState",
     "Lookback",
+    "PersistenceState",
     "PriceBar",
     "RegimeState",
+    "RegimeTransitionState",
+    "StateAccelerationState",
+    "StateVelocityState",
     "Timeframe",
 ]
