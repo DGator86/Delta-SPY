@@ -6,7 +6,7 @@ The Market Mechanics inertia surface uses the same nine canonical timeframes as 
 1m | 5m | 15m | 30m | 1h | 4h | 1d | 3d | 5d
 ```
 
-The key distinction is that each timeframe column represents an adjacent measurement window rather than an overlapping lookback.
+Each timeframe column represents adjacent measurement windows rather than overlapping lookbacks.
 
 For every native timeframe `T`:
 
@@ -65,6 +65,51 @@ inertial_bias =
 
 Nonpositive directional beta estimates are treated as unavailable rather than converted into fake negative inertia values.
 
+## Phase-I causal beta estimator
+
+`estimate_inertia_matrices()` accepts a synchronized stream of:
+
+```text
+trading_minute
+log_price
+net_force
+```
+
+`trading_minute` is a monotonic regular-session market clock. A complete regular session advances it by 390 minutes. This keeps weekend and closure time out of the mechanics geometry.
+
+`log_price` must be a price estimate available live at that instant. Midpoint, microprice, or another causal efficient-price proxy is preferred over last-trade price.
+
+`net_force` is a signed causal pressure input. In this first estimator it is supplied by the upstream pressure layer; this module does not yet claim that any particular force construction is correct.
+
+The estimator derives velocity and acceleration causally from log price, then forms samples of the form:
+
+```text
+F_t, v_t  ->  a_(t+1)
+```
+
+The target acceleration is first observed after the force measurement. Same-period acceleration is not used as the response target.
+
+For each non-overlapping timeframe window it fits:
+
+```text
+a_next = intercept + beta * F_t + velocity_control * v_t + error
+```
+
+separately for:
+
+```text
+positive force               -> beta_up
+negative force               -> beta_down
+v >= 0 and F > 0             -> beta_pp
+v >= 0 and F < 0             -> beta_pm
+v < 0 and F > 0              -> beta_mp
+v < 0 and F < 0              -> beta_mm
+```
+
+Each coefficient carries its sample count and R-squared diagnostic. Insufficient samples remain unavailable rather than being filled.
+
+By default, force, acceleration, and velocity are scaled within each window so the response coefficients are dimensionless and more comparable across regimes. Raw-unit estimation is retained for research and synthetic recovery tests.
+
 ## Linear walk-forward
 
 The simple A->B one-T processor operates on the response coefficients, not directly on derived inertia.
@@ -97,4 +142,8 @@ M(C) = 2*M(B) - M(A)
 
 because inertia is mathematically dependent on the response coefficient. Walking beta and re-deriving inertia preserves the Market Mechanics model hierarchy.
 
-This module provides geometry and deterministic transformation only. It does not yet estimate beta from order flow, liquidity, or price data, and it has no trade or execution authority.
+## Current boundary
+
+This is a Phase-I response estimator, not a validated market model. It estimates how a supplied causal pressure stream maps into subsequent price acceleration. The next empirical question is whether the supplied force construction is itself informative and whether the resulting inertia variables add out-of-sample information beyond raw force, liquidity, volatility, and conventional momentum.
+
+The module has no action, trade, strategy, position, order, broker, sizing, or execution authority.
