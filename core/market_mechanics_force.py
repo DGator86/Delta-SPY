@@ -210,7 +210,7 @@ def _combine_components(
 def build_micro_force(
     observations: tuple[MicrostructureObservation, ...],
     *,
-    weights: ForceWeights = ForceWeights(),
+    weights: ForceWeights | None = None,
     price_mode: PriceMode = "microprice",
 ) -> tuple[ForceState, ...]:
     """Construct a causal, decomposed SPY micro-force stream.
@@ -221,6 +221,7 @@ def build_micro_force(
 
     if not observations:
         raise ValueError("microstructure observations are required")
+    resolved_weights = ForceWeights() if weights is None else weights
 
     previous_time: float | None = None
     output: list[ForceState] = []
@@ -243,7 +244,7 @@ def build_micro_force(
             trade_imbalance=trade,
             depth_imbalance=depth,
             replenishment_pressure=replenishment,
-            weights=weights,
+            weights=resolved_weights,
         )
         price = _efficient_price(observation, price_mode)
         output.append(
