@@ -126,6 +126,8 @@ def _ols_force_response(
 
     if len(samples) < min_samples:
         return CoefficientFit(value=None, samples=len(samples), r_squared=None)
+    if _sample_std([sample.force for sample in samples]) is None:
+        return CoefficientFit(value=None, samples=len(samples), r_squared=None)
 
     rows: list[list[float]] = []
     targets: list[float] = []
