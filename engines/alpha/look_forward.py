@@ -4,8 +4,8 @@ from core.linear_bridge import LINEAR_PAIRS, linear_bridge
 from core.timeframes import Timeframe
 
 from .contracts import (
-    AlphaLookForwardRows,
     AlphaLookbackRows,
+    AlphaLookForwardRows,
     AlphaRows,
     LinearWalkForward1TState,
 )
