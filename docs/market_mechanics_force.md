@@ -92,6 +92,70 @@ active_components
 
 This allows every component and the composite to be kill-tested independently.
 
+## Force matrices
+
+Every time-dependent force row is now matricized across the same nine canonical timeframes:
+
+```text
+1m | 5m | 15m | 30m | 1h | 4h | 1d | 3d | 5d
+```
+
+with the same adjacent non-overlapping geometry:
+
+```text
+LOOKBACK = [-2T,-T]
+CURRENT  = [-T,0]
+FORWARD  = [0,+T]
+```
+
+The direct force rows are:
+
+```text
+ofi_pressure
+trade_imbalance
+depth_imbalance
+replenishment_pressure
+net_force
+```
+
+For each row and timeframe, A is the mean causal pressure state in the lookback window and B is the mean causal pressure state in the current window. The first forward processor walks the row one native T:
+
+```text
+C = 2B - A
+```
+
+Window samples use `(start,end]`, so adjacent windows share no force observations while the current window still includes the as-of state.
+
+## Walk-forward dependency rule
+
+The currently implemented direct AB rows are exactly:
+
+```text
+force rows + response-beta rows
+```
+
+That means the five force rows above and:
+
+```text
+beta_up
+beta_down
+beta_pp
+beta_pm
+beta_mp
+beta_mm
+```
+
+are linearly walked one T.
+
+Inertia is dependent state and is not independently extrapolated. Forward inertia is recomputed from forward beta:
+
+```text
+beta_C = 2B - A
+M_C    = 1 / beta_C
+```
+
+The pipeline publishes this dependency split explicitly as `DIRECT_LINEAR_WALK_ROWS` and `DERIVED_MECHANICS_ROWS`.
+
 ## Direct inertia integration
 
 `ForceState` adapts directly into the Phase-I response estimator as:
@@ -108,13 +172,9 @@ The estimator then uses the causal relation:
 F_t, v_t -> a_(t+1)
 ```
 
-inside the non-overlapping mechanics windows:
+inside the same non-overlapping mechanics windows.
 
-```text
-LOOKBACK = [-2T,-T]
-CURRENT  = [-T,0]
-FORWARD  = [0,+T]
-```
+`build_market_mechanics_pipeline()` now returns the raw force states, the three force matrices, and the response/inertia estimation from one causal microstructure input stream.
 
 ## Identification safeguard
 
