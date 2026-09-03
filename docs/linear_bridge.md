@@ -14,46 +14,28 @@ The platform pairs each negative lookback column with its matching positive curr
 -5d  ->  5d
 ```
 
-This is model-neutral geometry. Alpha, Beta, and Gamma may supply numeric A/B values, but the bridge itself has no model opinion and no decision authority.
+A is the prior matching native state at `t-T`. B is the current matching native state at `t`.
 
-A is the prior matching native state at `t-T`. B is the current matching native state at `t`:
-
-```text
-A = (-T, A)
-B = ( 0, B)
-```
-
-The observed straight line is:
+For any numeric temporal component:
 
 ```text
 m = (B - A) / T
-b = B
 f(x) = m*x + B
+f(+T) = B + (B-A) = 2B-A
 ```
 
-Properties:
+This same operation is applied component-wise to every numeric temporal item exposed by Alpha's current/lookback state surfaces. Examples include spot, observed return, regime scores and confidence, realized volatility, cross-sectional numeric measurements, forecast distribution statistics, data-quality numeric measurements, state velocity, state acceleration, persistence counts, forecast drift, and confidence change.
+
+Strings, booleans, identifiers, labels, and warning collections are explicitly non-projectable. They are never coerced into numbers merely to make the line function run.
+
+The look-forward matrix remains organized as:
 
 ```text
-f(-T) = A
-f(0)  = B
+rows    = forward processors
+columns = 1m | 5m | 15m | 30m | 1h | 4h | 1d | 3d | 5d
 ```
 
-Walking the same line forward exactly one more native period gives:
-
-```text
-f(+T) = B + (B - A)
-       = 2B - A
-```
-
-The implementation exposes:
-
-- endpoint coordinates and values;
-- slope per minute;
-- observed A->B change;
-- arithmetic midpoint of the observed segment;
-- arbitrary line evaluation with `value_at(x)`;
-- segment interpolation with `interpolate(fraction)` where 0=A and 1=B;
-- `forward_one_t_value` for the deliberately naive one-T continuation.
+Its first processor row is `linear_ab_1t`. Each timeframe cell contains the full set of numeric component projections plus the non-projectable component paths for auditability.
 
 Intraday coordinates are expressed in minutes. Daily/multi-day coordinates use regular-session trading minutes:
 
@@ -63,6 +45,4 @@ Intraday coordinates are expressed in minutes. Daily/multi-day coordinates use r
 5d = 1950 minutes
 ```
 
-This keeps the geometry aligned with trading-session time instead of calendar weekends or closures.
-
-The bridge is descriptive mathematics. Using `forward_one_t_value` is a baseline extrapolation processor, not a trading signal, strategy recommendation, or execution instruction.
+This is model-neutral descriptive/extrapolative mathematics only. It is not a trade action, strategy, recommendation, or execution instruction.
