@@ -4,9 +4,21 @@ A market-intelligence monorepo built around independent quantitative engines.
 
 ## Architecture rule
 
-Alpha, Beta, and Gamma are independent engines housed in one repository. They may share infrastructure later, but they do not import or call one another. Their first point of convergence will be Delta.
+Alpha, Beta, and Gamma are independent engines housed in one repository. They may share model-neutral contracts, but they do not import or call one another. Their first point of convergence will be Delta.
 
 Development begins with **Alpha only**.
+
+## Canonical timeframe matrix
+
+Every model uses the same fixed columns:
+
+```text
+1m | 5m | 15m | 30m | 1h | 4h | 1d
+```
+
+Rows are model-specific processing units. Columns are always those seven timeframes.
+A model therefore ingests all seven native timeframe series and emits every processing
+row across those same seven columns.
 
 ## Alpha principle
 
