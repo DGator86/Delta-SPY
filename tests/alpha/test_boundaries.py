@@ -7,6 +7,7 @@ from pathlib import Path
 from core.timeframes import LOOKBACKS, TIMEFRAMES
 from engines.alpha.contracts import (
     AlphaInput,
+    AlphaLookForwardRows,
     AlphaLookbackRows,
     AlphaRows,
     AlphaState,
@@ -15,6 +16,7 @@ from engines.alpha.contracts import (
     DataQuality,
     ForecastDistribution,
     ForecastDriftState,
+    LinearWalkForward1TState,
     PersistenceState,
     PriceBar,
     RegimeState,
@@ -58,8 +60,10 @@ PUBLIC_CONTRACTS = (
     RegimeTransitionState,
     ForecastDriftState,
     ConfidenceChangeState,
+    LinearWalkForward1TState,
     AlphaRows,
     AlphaLookbackRows,
+    AlphaLookForwardRows,
     AlphaState,
 )
 
@@ -68,7 +72,7 @@ def _field_names(dataclass_type) -> set[str]:
     return {field.name.lower() for field in fields(dataclass_type)}
 
 
-def test_canonical_current_and_lookback_columns_are_fixed() -> None:
+def test_canonical_current_lookback_and_forward_columns_are_fixed() -> None:
     assert TIMEFRAMES == (
         "1m",
         "5m",
