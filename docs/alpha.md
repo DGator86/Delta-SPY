@@ -1,4 +1,4 @@
-# Alpha Engine v0.4
+# Alpha Engine v0.5
 
 Alpha is a pure statistical market engine.
 
@@ -21,7 +21,7 @@ Every model in this repository uses the same fixed positive timeframe columns:
 
 Rows are processing units. Columns are timeframes.
 
-Alpha v0.4 rows:
+Alpha rows:
 
 ```text
 state / measurement       1m   5m  15m  30m   1h   4h   1d   3d   5d
@@ -50,6 +50,36 @@ The lookback matrix uses the exact same row vocabulary and fixed negative column
 A negative lookback is native-bar based, not wall-clock subtraction. For example,
 `-5m` is the 5-minute Alpha state as it existed one completed 5-minute bar earlier.
 The lookback row is recomputed from information available at that cutoff.
+
+## Canonical A -> B linear bridge
+
+The shared platform pairs each negative lookback column with the matching positive
+current-state column:
+
+```text
+-1m  ->  1m
+-5m  ->  5m
+-15m -> 15m
+-30m -> 30m
+-1h  ->  1h
+-4h  ->  4h
+-1d  ->  1d
+-3d  ->  3d
+-5d  ->  5d
+```
+
+For any numeric Alpha component with A at `-T` and B at `+T`, the shared model-neutral
+straight line is:
+
+```text
+m = (B - A) / (2T)
+b = (A + B) / 2
+f(x) = m*x + b
+```
+
+The bridge exposes endpoints, slope, midpoint/intercept, total change, arbitrary line
+evaluation, and interpolation. It is shared core geometry rather than an Alpha opinion.
+See `docs/linear_bridge.md`.
 
 ## Temporal dynamics rows
 
