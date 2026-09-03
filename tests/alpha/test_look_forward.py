@@ -52,7 +52,7 @@ def test_look_forward_matrix_has_first_linear_processor_across_all_columns() -> 
 
     assert state.look_forward_columns == TIMEFRAMES
     assert tuple(state.look_forward.linear_ab_1t) == TIMEFRAMES
-    assert state.engine_version == "alpha-0.6.0"
+    assert state.engine_version == "alpha-0.5.0"
 
 
 def test_linear_ab_1t_walks_every_numeric_temporal_component_forward_one_t() -> None:
