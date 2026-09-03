@@ -6,11 +6,11 @@ from .contracts import AlphaInput, AlphaState
 from .engine_v04 import AlphaEngine as AlphaEngineV04
 from .look_forward import build_look_forward_rows
 
-ENGINE_VERSION = "alpha-0.6.0"
+ENGINE_VERSION = "alpha-0.5.0"
 
 
 class AlphaEngine(AlphaEngineV04):
-    """Alpha v0.6: temporal state plus generic one-T forward processing."""
+    """Alpha v0.5: temporal state plus generic one-T forward processing."""
 
     version = ENGINE_VERSION
 
