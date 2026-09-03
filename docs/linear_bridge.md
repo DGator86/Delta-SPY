@@ -16,31 +16,44 @@ The platform pairs each negative lookback column with its matching positive curr
 
 This is model-neutral geometry. Alpha, Beta, and Gamma may supply numeric A/B values, but the bridge itself has no model opinion and no decision authority.
 
-For any numeric component with point A = `(-T, A)` and point B = `(+T, B)`, the unique straight line is:
+A is the prior matching native state at `t-T`. B is the current matching native state at `t`:
 
 ```text
-m = (B - A) / (2T)
-b = (A + B) / 2
-f(x) = m*x + b
+A = (-T, A)
+B = ( 0, B)
+```
+
+The observed straight line is:
+
+```text
+m = (B - A) / T
+b = B
+f(x) = m*x + B
 ```
 
 Properties:
 
 ```text
 f(-T) = A
-f(0)  = (A + B) / 2
-f(+T) = B
+f(0)  = B
+```
+
+Walking the same line forward exactly one more native period gives:
+
+```text
+f(+T) = B + (B - A)
+       = 2B - A
 ```
 
 The implementation exposes:
 
-- endpoint coordinates;
-- endpoint values;
+- endpoint coordinates and values;
 - slope per minute;
-- intercept / midpoint value;
-- total A->B change;
+- observed A->B change;
+- arithmetic midpoint of the observed segment;
 - arbitrary line evaluation with `value_at(x)`;
-- segment interpolation with `interpolate(fraction)` where 0=A and 1=B.
+- segment interpolation with `interpolate(fraction)` where 0=A and 1=B;
+- `forward_one_t_value` for the deliberately naive one-T continuation.
 
 Intraday coordinates are expressed in minutes. Daily/multi-day coordinates use regular-session trading minutes:
 
@@ -52,4 +65,4 @@ Intraday coordinates are expressed in minutes. Daily/multi-day coordinates use r
 
 This keeps the geometry aligned with trading-session time instead of calendar weekends or closures.
 
-The bridge is descriptive mathematics only. It is not an extrapolation mandate, trading signal, recommendation, or execution instruction.
+The bridge is descriptive mathematics. Using `forward_one_t_value` is a baseline extrapolation processor, not a trading signal, strategy recommendation, or execution instruction.
