@@ -151,16 +151,34 @@ class ConfidenceChangeState:
 
 
 @dataclass(frozen=True, slots=True)
+class LinearProjectionComponent:
+    """One numeric temporal component walked from A through B forward one native T."""
+
+    path: str
+    point_a: float | None
+    point_b: float | None
+    observed_delta: float | None
+    slope_per_minute: float | None
+    projected_value: float | None
+
+    @property
+    def available(self) -> bool:
+        return self.projected_value is not None
+
+
+@dataclass(frozen=True, slots=True)
 class LinearWalkForward1TState:
-    """Auditable one-native-period linear continuation from prior A through current B."""
+    """Full auditable one-T linear continuation of Alpha's numeric temporal state."""
 
     lookback: Lookback
     timeframe: Timeframe
-    point_a: float
-    point_b: float
-    observed_delta: float
-    slope_per_minute: float
-    projected_spot: float
+    components: dict[str, LinearProjectionComponent]
+    non_projectable_paths: tuple[str, ...] = ()
+
+    @property
+    def projected_spot(self) -> float | None:
+        component = self.components.get("spot")
+        return component.projected_value if component else None
 
 
 @dataclass(frozen=True, slots=True)
