@@ -17,8 +17,6 @@ STEP_MINUTES = {
     "5d": 7200,
 }
 
-LOOKBACK_TO_TIMEFRAME = dict(zip(LOOKBACKS, TIMEFRAMES, strict=True))
-
 
 def _bars(timeframe: str, count: int = 40) -> tuple[PriceBar, ...]:
     step = timedelta(minutes=STEP_MINUTES[timeframe])
@@ -54,26 +52,68 @@ def test_look_forward_matrix_has_first_linear_processor_across_all_columns() -> 
 
     assert state.look_forward_columns == TIMEFRAMES
     assert tuple(state.look_forward.linear_ab_1t) == TIMEFRAMES
-    assert state.engine_version == "alpha-0.5.0"
+    assert state.engine_version == "alpha-0.6.0"
 
 
-def test_linear_ab_1t_walks_prior_to_current_line_forward_one_native_t() -> None:
+def test_linear_ab_1t_walks_every_numeric_temporal_component_forward_one_t() -> None:
     matrix = _matrix()
     state = AlphaEngine().process(
         AlphaInput(as_of=matrix["1m"][-1].timestamp, spy_bars=matrix)
     )
 
+    required_paths = {
+        "spot",
+        "observed_return",
+        "regime.trend_score",
+        "regime.realized_volatility_annualized",
+        "regime.volatility_percentile",
+        "regime.confidence",
+        "forecast.expected_return",
+        "forecast.probability_up",
+        "forecast.standard_deviation",
+        "quality.completeness",
+        "state_velocity.expected_return_delta",
+        "state_acceleration.expected_return_second_difference",
+        "persistence.trend_streak_bars",
+        "forecast_drift.expected_return_delta",
+        "confidence_change.delta",
+    }
+
     for lookback, timeframe in zip(LOOKBACKS, TIMEFRAMES, strict=True):
         cell = state.look_forward.linear_ab_1t[timeframe]
-        point_a = state.lookback.spot[lookback]
-        point_b = state.current.spot[timeframe]
-
         assert cell.lookback == lookback
         assert cell.timeframe == timeframe
-        assert cell.point_a == point_a
-        assert cell.point_b == point_b
-        assert math.isclose(cell.observed_delta, point_b - point_a)
-        assert math.isclose(cell.projected_spot, 2.0 * point_b - point_a)
+        assert required_paths <= set(cell.components)
+
+        spot = cell.components["spot"]
+        point_a = state.lookback.spot[lookback]
+        point_b = state.current.spot[timeframe]
+        assert spot.point_a == point_a
+        assert spot.point_b == point_b
+        assert math.isclose(spot.observed_delta, point_b - point_a)
+        assert math.isclose(spot.projected_value, 2.0 * point_b - point_a)
+        assert math.isclose(cell.projected_spot, spot.projected_value)
+
+        for component in cell.components.values():
+            if component.point_a is None or component.point_b is None:
+                assert component.projected_value is None
+                continue
+            assert component.observed_delta == component.point_b - component.point_a
+            assert component.projected_value == 2.0 * component.point_b - component.point_a
+
+
+def test_categorical_temporal_items_are_explicitly_non_projectable() -> None:
+    matrix = _matrix()
+    state = AlphaEngine().process(
+        AlphaInput(as_of=matrix["1m"][-1].timestamp, spy_bars=matrix)
+    )
+    cell = state.look_forward.linear_ab_1t["15m"]
+
+    assert "regime.trend" in cell.non_projectable_paths
+    assert "regime.volatility" in cell.non_projectable_paths
+    assert "persistence.joint_persistent" in cell.non_projectable_paths
+    assert "quality.warnings" in cell.non_projectable_paths
+    assert "regime_transition.trend_changed" in cell.non_projectable_paths
 
 
 def test_linear_forward_is_not_a_trade_or_strategy_output() -> None:
