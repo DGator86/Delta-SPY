@@ -21,31 +21,40 @@ def test_canonical_linear_pairs_are_exact() -> None:
     assert LINEAR_PAIRS == EXPECTED_PAIRS
 
 
-def test_linear_bridge_recovers_a_midpoint_and_b() -> None:
+def test_linear_bridge_recovers_prior_current_and_one_t_forward() -> None:
     bridge = linear_bridge("-5m", y_a=100.0, y_b=110.0)
 
     assert bridge.x_a_minutes == -5.0
-    assert bridge.x_b_minutes == 5.0
-    assert math.isclose(bridge.slope_per_minute, 1.0)
-    assert math.isclose(bridge.intercept, 105.0)
+    assert bridge.x_b_minutes == 0.0
+    assert math.isclose(bridge.slope_per_minute, 2.0)
+    assert math.isclose(bridge.intercept, 110.0)
     assert math.isclose(bridge.value_at(-5.0), 100.0)
-    assert math.isclose(bridge.value_at(0.0), 105.0)
-    assert math.isclose(bridge.value_at(5.0), 110.0)
+    assert math.isclose(bridge.value_at(0.0), 110.0)
+    assert math.isclose(bridge.value_at(5.0), 120.0)
+    assert math.isclose(bridge.forward_one_t_value, 120.0)
+    assert math.isclose(bridge.midpoint_value, 105.0)
     assert math.isclose(bridge.interpolate(0.0), 100.0)
     assert math.isclose(bridge.interpolate(0.5), 105.0)
     assert math.isclose(bridge.interpolate(1.0), 110.0)
 
 
-def test_every_pair_uses_symmetric_coordinates() -> None:
+def test_every_pair_walks_forward_one_native_t() -> None:
     for lookback, timeframe in LINEAR_PAIRS:
         bridge = linear_bridge(lookback, y_a=2.0, y_b=8.0)
         distance = TIMEFRAME_DISTANCE_MINUTES[timeframe]
         assert bridge.timeframe == timeframe
         assert bridge.x_a_minutes == -distance
-        assert bridge.x_b_minutes == distance
+        assert bridge.x_b_minutes == 0.0
         assert math.isclose(bridge.value_at(-distance), 2.0)
-        assert math.isclose(bridge.value_at(distance), 8.0)
-        assert math.isclose(bridge.value_at(0.0), 5.0)
+        assert math.isclose(bridge.value_at(0.0), 8.0)
+        assert math.isclose(bridge.value_at(distance), 14.0)
+        assert math.isclose(bridge.forward_one_t_value, 14.0)
+
+
+def test_one_t_forward_is_two_b_minus_a() -> None:
+    for lookback, _ in LINEAR_PAIRS:
+        bridge = linear_bridge(lookback, y_a=97.25, y_b=101.75)
+        assert math.isclose(bridge.forward_one_t_value, 2.0 * 101.75 - 97.25)
 
 
 def test_daily_pairs_use_trading_session_minutes() -> None:
