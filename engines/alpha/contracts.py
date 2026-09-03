@@ -86,6 +86,71 @@ class DataQuality:
 
 
 @dataclass(frozen=True, slots=True)
+class StateVelocityState:
+    """First differences in measured Alpha state over one matching native bar."""
+
+    trend_score_delta: float | None
+    realized_volatility_delta: float | None
+    expected_return_delta: float | None
+    probability_up_delta: float | None
+    dispersion_delta: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class StateAccelerationState:
+    """Second differences: change in state velocity over one matching native bar."""
+
+    trend_score_second_difference: float | None
+    realized_volatility_second_difference: float | None
+    expected_return_second_difference: float | None
+    probability_up_second_difference: float | None
+    dispersion_second_difference: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class PersistenceState:
+    """Consecutive native bars for which the current statistical regime persists."""
+
+    trend_streak_bars: int
+    volatility_streak_bars: int
+    joint_streak_bars: int
+    joint_persistent: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RegimeTransitionState:
+    """Observed regime change from the prior matching native bar to this state."""
+
+    from_trend: str | None
+    to_trend: str | None
+    from_volatility: str | None
+    to_volatility: str | None
+    trend_changed: bool | None
+    volatility_changed: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastDriftState:
+    """Change in the empirical forecast distribution versus the prior native state."""
+
+    expected_return_delta: float | None
+    probability_up_delta: float | None
+    standard_deviation_delta: float | None
+    median_delta: float | None
+    expected_mfe_delta: float | None
+    expected_mae_delta: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class ConfidenceChangeState:
+    """Change in Alpha regime confidence versus the prior matching native bar."""
+
+    previous_confidence: float | None
+    current_confidence: float | None
+    delta: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class AlphaRows:
     """Current Alpha processing-unit rows across positive timeframe columns."""
 
@@ -95,6 +160,12 @@ class AlphaRows:
     cross_section: dict[Timeframe, CrossSectionState]
     forecast: dict[Timeframe, ForecastDistribution]
     quality: dict[Timeframe, DataQuality]
+    state_velocity: dict[Timeframe, StateVelocityState] = field(default_factory=dict)
+    state_acceleration: dict[Timeframe, StateAccelerationState] = field(default_factory=dict)
+    persistence: dict[Timeframe, PersistenceState] = field(default_factory=dict)
+    regime_transition: dict[Timeframe, RegimeTransitionState] = field(default_factory=dict)
+    forecast_drift: dict[Timeframe, ForecastDriftState] = field(default_factory=dict)
+    confidence_change: dict[Timeframe, ConfidenceChangeState] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +178,12 @@ class AlphaLookbackRows:
     cross_section: dict[Lookback, CrossSectionState]
     forecast: dict[Lookback, ForecastDistribution]
     quality: dict[Lookback, DataQuality]
+    state_velocity: dict[Lookback, StateVelocityState] = field(default_factory=dict)
+    state_acceleration: dict[Lookback, StateAccelerationState] = field(default_factory=dict)
+    persistence: dict[Lookback, PersistenceState] = field(default_factory=dict)
+    regime_transition: dict[Lookback, RegimeTransitionState] = field(default_factory=dict)
+    forecast_drift: dict[Lookback, ForecastDriftState] = field(default_factory=dict)
+    confidence_change: dict[Lookback, ConfidenceChangeState] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
