@@ -6,11 +6,11 @@ from .contracts import AlphaInput, AlphaState
 from .engine_v04 import AlphaEngine as AlphaEngineV04
 from .look_forward import build_look_forward_rows
 
-ENGINE_VERSION = "alpha-0.5.0"
+ENGINE_VERSION = "alpha-0.6.0"
 
 
 class AlphaEngine(AlphaEngineV04):
-    """Alpha v0.5: current, lookback, and forward-processing matrices."""
+    """Alpha v0.6: temporal state plus generic one-T forward processing."""
 
     version = ENGINE_VERSION
 
@@ -27,8 +27,11 @@ class AlphaEngine(AlphaEngineV04):
             {
                 "look_forward_processors": "linear_ab_1t",
                 "linear_ab_1t_semantics": (
-                    "A=prior_native_spot_at_t_minus_T;B=current_native_spot_at_t;"
-                    "projection_at_t_plus_T=2B-A"
+                    "componentwise_numeric_temporal_state;A=prior_native_state_at_t_minus_T;"
+                    "B=current_native_state_at_t;projection_at_t_plus_T=2B-A"
+                ),
+                "linear_ab_1t_non_numeric_semantics": (
+                    "strings_booleans_identifiers_and_warnings_are_not_linearly_projected"
                 ),
             }
         )
