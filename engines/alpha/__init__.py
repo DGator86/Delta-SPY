@@ -4,8 +4,8 @@ from core.timeframes import LOOKBACKS, TIMEFRAMES, Lookback, Timeframe
 
 from .contracts import (
     AlphaInput,
-    AlphaLookForwardRows,
     AlphaLookbackRows,
+    AlphaLookForwardRows,
     AlphaRows,
     AlphaState,
     ConfidenceChangeState,
