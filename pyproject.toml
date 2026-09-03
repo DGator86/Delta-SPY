@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "delta-spy"
+version = "0.1.0"
+description = "Independent market-intelligence engines for SPY"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["engines*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
