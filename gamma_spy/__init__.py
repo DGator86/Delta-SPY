@@ -14,14 +14,17 @@ from .contracts import (
     Positioning,
 )
 from .engine import GammaBehavioralEngine
+from .universe import GammaUniverseEngine, UniverseBehavioralState
 
 __all__ = [
     "Bar",
     "BehavioralState",
     "CatalystObservation",
     "GammaBehavioralEngine",
+    "GammaUniverseEngine",
     "MarketInternals",
     "MarketSnapshot",
     "OptionObservation",
     "Positioning",
+    "UniverseBehavioralState",
 ]
