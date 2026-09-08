@@ -10,8 +10,9 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
+live = ["websockets>=12"]
 calibration = ["numpy>=1.26", "scikit-learn>=1.4"]
-dev = ["pytest>=8.0", "ruff>=0.5"]
+dev = ["pytest>=8.0", "ruff>=0.5", "websockets>=12"]
 
 [project.scripts]
 gamma-spy = "gamma_spy.cli:main"
