@@ -34,7 +34,14 @@ def _parse_ts(value: Any) -> datetime:
         return datetime.fromtimestamp(numeric, tz=UTC)
     if not isinstance(value, str):
         raise ValueError(f"unsupported timestamp value: {value!r}")
-    text = value.strip().replace("Z", "+00:00")
+    text = value.strip()
+    numeric_text = text.lstrip("+-").replace(".", "", 1)
+    if numeric_text.isdigit():
+        numeric = float(text)
+        if numeric > 1e12:
+            numeric /= 1000.0
+        return datetime.fromtimestamp(numeric, tz=UTC)
+    text = text.replace("Z", "+00:00")
     dt = datetime.fromisoformat(text)
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=EASTERN).astimezone(UTC)
 
