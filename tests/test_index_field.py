@@ -38,10 +38,10 @@ def _snapshot(symbol: str, direction: float) -> MarketSnapshot:
 
 
 def test_select_top_weight_mass_reaches_target_with_smallest_prefix():
-    selected = select_top_weight_mass(
-        {"A": 0.12, "B": 0.08, "C": 0.05, "D": 0.04, "E": 0.03},
-        fraction=0.25,
-    )
+    weights = {"A": 0.12, "B": 0.08, "C": 0.05}
+    weights.update({f"X{i:02d}": 0.05 for i in range(15)})
+    assert abs(sum(weights.values()) - 1.0) < 1e-12
+    selected = select_top_weight_mass(weights, fraction=0.25)
     assert selected == ("A", "B", "C")
 
 
