@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "delta-spy"
+version = "0.1.0"
+description = "Independent Alpha/Beta/Gamma market-intelligence engines converging at Delta"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+live = ["websockets>=12"]
+calibration = ["numpy>=1.26", "scikit-learn>=1.4"]
+dev = ["pytest>=8.0", "ruff>=0.5", "websockets>=12"]
+
+[project.scripts]
+gamma-spy = "gamma_spy.cli:main"
+
+[tool.setuptools]
+packages = ["gamma_spy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["F841"]
